@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Intelligence Pheromone Simulation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        
+        :root {
+            --bg-primary: #f3f1e6;
+            --bg-secondary: #e6ecd6;
+            --bg-tertiary: #d5dfbf;
+            --accent-primary: #2f6f3e;
+            --accent-secondary: #8f5e2e;
+            --accent-success: #4caf50;
+            --accent-warning: #d8891c;
+            --accent-danger: #c74b3d;
+            --text-primary: #1f321d;
+            --text-secondary: #506549;
+            --text-muted: #708067;
+            --border-color: rgba(47, 111, 62, 0.16);
+            --glass-bg: rgba(255, 255, 255, 0.58);
+            --glass-border: rgba(47, 111, 62, 0.14);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(143, 94, 46, 0.14), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(47, 111, 62, 0.18), transparent 32%),
+                linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 55%, #edf2df 100%);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 320px;
+            grid-template-rows: 80px 1fr 60px;
+            height: 100vh;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), #5d8f49);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .sidebar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .main-viewport {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .sensor-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sensor-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .sensor-card:hover::before {
+            left: 100%;
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 12px 32px rgba(47, 111, 62, 0.18);
+        }
+
+        .sensor-card.active {
+            border-color: var(--accent-primary);
+            background: linear-gradient(135deg, rgba(47, 111, 62, 0.12), rgba(143, 94, 46, 0.1));
+        }
+
+        .sensor-card.alert {
+            border-color: var(--accent-danger);
+            animation: alertPulse 1s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(244, 67, 54, 0); }
+        }
+
+        .sensor-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--accent-primary);
+        }
+
+        .sensor-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-optimal { background: rgba(76, 175, 80, 0.2); color: var(--accent-success); }
+        .status-detecting { background: rgba(255, 152, 0, 0.2); color: var(--accent-warning); }
+        .status-alert { background: rgba(244, 67, 54, 0.2); color: var(--accent-danger); }
+        .status-spraying { background: rgba(124, 77, 255, 0.2); color: var(--accent-secondary); }
+
+        .control-section {
+            margin-bottom: 24px;
+        }
+
+        .control-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-primary), #5d8f49);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(47, 111, 62, 0.24);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, var(--accent-danger), #dd7b52);
+        }
+
+        .btn.success {
+            background: linear-gradient(135deg, var(--accent-success), #79bf63);
+        }
+
+        .viewport-3d {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(76, 175, 80, 0.16) 0%, transparent 32%),
+                radial-gradient(circle at 80% 80%, rgba(143, 94, 46, 0.14) 0%, transparent 30%),
+                linear-gradient(rgba(47, 111, 62, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(47, 111, 62, 0.05) 1px, transparent 1px);
+            background-size: 420px 420px, 420px 420px, 42px 42px, 42px 42px;
+            animation: backgroundFloat 20s linear infinite;
+        }
+
+        @keyframes backgroundFloat {
+            0% { background-position: 0% 0%, 0% 0%, 0% 0%; }
+            100% { background-position: 100% 100%, -100% -100%, 50% 50%; }
+        }
+
+        .field-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(47, 111, 62, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(47, 111, 62, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.3;
+        }
+
+        .field-row {
+            position: absolute;
+            left: 6%;
+            right: 6%;
+            height: 9%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(92, 133, 62, 0.18), rgba(124, 162, 72, 0.28), rgba(92, 133, 62, 0.18));
+            opacity: 0.42;
+            filter: blur(1px);
+        }
+
+        .hotspot {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(199, 75, 61, 0.58) 0%, rgba(216, 137, 28, 0.32) 45%, rgba(216, 137, 28, 0) 72%);
+            pointer-events: none;
+            mix-blend-mode: multiply;
+            animation: hotspotPulse 4s ease-in-out infinite;
+        }
+
+        .hotspot::after {
+            content: '';
+            position: absolute;
+            inset: 16%;
+            border-radius: 50%;
+            border: 1px dashed rgba(199, 75, 61, 0.38);
+        }
+
+        @keyframes hotspotPulse {
+            0%, 100% { transform: scale(0.95); opacity: 0.72; }
+            50% { transform: scale(1.08); opacity: 0.95; }
+        }
+
+        .trail-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .trail-line {
+            position: absolute;
+            height: 3px;
+            border-radius: 999px;
+            transform-origin: 0 50%;
+            background: linear-gradient(90deg, rgba(143, 94, 46, 0.02), rgba(143, 94, 46, 0.42), rgba(47, 111, 62, 0.18));
+            opacity: 0.75;
+            filter: blur(0.15px);
+        }
+
+        .trail-line.fade {
+            opacity: 0.28;
+        }
+
+        .drone {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #ffffff 0%, #d8ecd1 25%, #5b7f43 65%, #315132 100%);
+            border: 2px solid rgba(255,255,255,0.65);
+            box-shadow: 0 0 0 6px rgba(47, 111, 62, 0.08);
+            transition: left 1.8s ease, top 1.8s ease, transform 0.3s ease;
+            z-index: 5;
+        }
+
+        .drone::before,
+        .drone::after {
+            content: '';
+            position: absolute;
+            top: 7px;
+            width: 22px;
+            height: 2px;
+            background: rgba(47, 111, 62, 0.75);
+            left: -4px;
+        }
+
+        .drone::after {
+            transform: rotate(90deg);
+        }
+
+        .drone.spraying {
+            box-shadow: 0 0 0 8px rgba(143, 94, 46, 0.16);
+        }
+
+        .drone.spraying .spray-cone {
+            opacity: 1;
+        }
+
+        .spray-cone {
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            left: -17px;
+            top: -17px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(143, 94, 46, 0.32) 0%, rgba(143, 94, 46, 0.14) 42%, transparent 75%);
+            opacity: 0;
+            animation: sprayBreath 1.1s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes sprayBreath {
+            0%, 100% { transform: scale(0.82); opacity: 0.35; }
+            50% { transform: scale(1.08); opacity: 0.7; }
+        }
+
+        .sensor-marker {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .sensor-marker:hover {
+            transform: scale(1.2) rotateY(15deg);
+        }
+
+        .sensor-core {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-primary), #5d8f49);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            animation: sensorPulse 3s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sensor-core::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), transparent 60%);
+        }
+
+        @keyframes sensorPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.4);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(0, 229, 255, 0);
+            }
+        }
+
+        .sensor-marker.alert .sensor-core {
+            background: linear-gradient(135deg, var(--accent-danger), #dd7b52);
+            animation: alertPulse 1s ease-in-out infinite;
+        }
+
+        .sensor-marker.spraying .sensor-core {
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-warning));
+            animation: sprayAnimation 0.8s ease-in-out infinite;
+        }
+
+        @keyframes sprayAnimation {
+            0%, 100% { 
+                transform: scale(1) rotate(0deg);
+                filter: brightness(1);
+            }
+            50% { 
+                transform: scale(1.3) rotate(180deg);
+                filter: brightness(1.5);
+            }
+        }
+
+        .detection-radius {
+            position: absolute;
+            border: 1px dashed rgba(47, 111, 62, 0.45);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(76, 175, 80, 0.08) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sensor-marker:hover .detection-radius {
+            opacity: 1;
+        }
+
+        .spray-effect {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(143, 94, 46, 0.45) 0%, rgba(76, 175, 80, 0.28) 48%, transparent 80%);
+            pointer-events: none;
+            animation: sprayExpansion 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes sprayExpansion {
+            0% { 
+                transform: scale(0) rotate(0deg);
+                opacity: 0.8;
+            }
+            100% { 
+                transform: scale(4) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .sensor-tooltip {
+            position: absolute;
+            bottom: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .sensor-marker:hover .sensor-tooltip {
+            opacity: 1;
+        }
+
+        .stats-container {
+            display: grid;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .advanced-controls {
+            margin-bottom: 24px;
+        }
+
+        .toggle-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .toggle-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        .activity-log {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+            flex-shrink: 0;
+        }
+
+        .log-message {
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .log-message.alert {
+            color: var(--accent-danger);
+        }
+
+        .log-message.success {
+            color: var(--accent-success);
+        }
+
+        .footer {
+            grid-column: 1 / -1;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .future-tech-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: futureTech 3s ease-in-out infinite;
+        }
+
+        @keyframes futureTech {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        .ai-analysis-panel {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .concept-panel {
+            background: linear-gradient(135deg, rgba(47, 111, 62, 0.08), rgba(143, 94, 46, 0.08));
+            border: 1px solid rgba(47, 111, 62, 0.16);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 22px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+        }
+
+        .concept-panel p {
+            font-size: 0.94rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+
+        .ai-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ai-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-secondary);
+            animation: aiPulse 1.5s ease-in-out infinite;
+        }
+
+        .ai-dot:nth-child(2) { animation-delay: 0.2s; }
+        .ai-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes aiPulse {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1.2); opacity: 1; }
+        }
+
+        .prediction-chart {
+            height: 60px;
+            background: linear-gradient(90deg, 
+                var(--accent-success) 0%, 
+                var(--accent-warning) 50%, 
+                var(--accent-danger) 100%);
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .prediction-wave {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+            animation: predictionScan 2s linear infinite;
+        }
+
+        @keyframes predictionScan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* ===== LIVE IOT PANEL — separate section below simulation ===== */
+        .iot-section {
+            width: 100%;
+            background: linear-gradient(135deg, #1a2e1c 0%, #0f1f10 100%);
+            border-top: 3px solid var(--accent-primary);
+            padding: 32px 40px 40px;
+            font-family: 'Space Grotesk', sans-serif;
+            color: #e8f0e9;
+        }
+
+        .iot-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .iot-title-block h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #7dc68a;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .iot-title-block p {
+            font-size: 0.85rem;
+            color: #7a9b7e;
+        }
+
+        .iot-connection-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(76, 175, 80, 0.12);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 24px;
+            padding: 8px 16px;
+            font-size: 0.82rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #7dc68a;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .iot-connection-badge:hover {
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        .iot-connection-badge .conn-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f44336;
+            transition: background 0.3s ease;
+        }
+
+        .iot-connection-badge.connected .conn-dot {
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .iot-connection-badge.connected {
+            border-color: rgba(76, 175, 80, 0.5);
+            color: #a5d6a7;
+        }
+
+        .iot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .iot-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(76, 175, 80, 0.15);
+            border-radius: 16px;
+            padding: 22px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .iot-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), #5d8f49);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .iot-card:hover::before { opacity: 1; }
+        .iot-card:hover { border-color: rgba(76, 175, 80, 0.35); transform: translateY(-2px); }
+
+        .iot-card.danger-card { border-color: rgba(199, 75, 61, 0.35); }
+        .iot-card.danger-card::before { background: linear-gradient(90deg, #c74b3d, #dd7b52); opacity: 1; }
+
+        .iot-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .iot-card-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #7a9b7e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .iot-card-icon {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        .iot-big-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.8rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 6px;
+            color: #c8e6c9;
+            transition: color 0.5s ease;
+        }
+
+        .iot-big-value.danger { color: #ef9a9a; }
+        .iot-big-value.warning { color: #ffe082; }
+        .iot-big-value.ok { color: #a5d6a7; }
+
+        .iot-unit {
+            font-size: 1rem;
+            color: #7a9b7e;
+            margin-left: 4px;
+        }
+
+        .iot-status-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+        }
+
+        .iot-status-label.healthy { background: rgba(76,175,80,0.15); color: #81c784; }
+        .iot-status-label.moderate { background: rgba(255,193,7,0.15); color: #ffd54f; }
+        .iot-status-label.critical { background: rgba(244,67,54,0.15); color: #ef9a9a; }
+
+        .iot-gauge-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            margin-top: 14px;
+            overflow: hidden;
+        }
+
+        .iot-gauge-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.8s cubic-bezier(0.4,0,0.2,1), background 0.5s ease;
+        }
+
+        /* Hardware Status Row */
+        .iot-hw-row {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .hw-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 0.82rem;
+            color: #9eb89f;
+            font-family: 'JetBrains Mono', monospace;
+            min-width: 130px;
+        }
+
+        .hw-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #616161;
+            transition: background 0.4s ease;
+            flex-shrink: 0;
+        }
+
+        .hw-dot.on { background: #4caf50; animation: pulse 2s infinite; }
+        .hw-dot.alert { background: #f44336; animation: alertPulse 1s infinite; }
+
+        /* Heatmap feed */
+        .iot-heatmap-section {
+            display: grid;
+            grid-template-columns: 1fr 260px;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .iot-heatmap-section { grid-template-columns: 1fr; }
+        }
+
+        .iot-heatmap-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(76, 175, 80, 0.15);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .iot-heatmap-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #7a9b7e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-tag {
+            background: rgba(244,67,54,0.18);
+            color: #ef9a9a;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            animation: pulse 1.5s infinite;
+        }
+
+        #iotHeatmapCanvas {
+            width: 100%;
+            height: 180px;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .drone-action-feed {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(76, 175, 80, 0.15);
+            border-radius: 16px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 260px;
+        }
+
+        .drone-feed-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #7a9b7e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+
+        .drone-feed-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.82rem;
+            color: #9eb89f;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .drone-feed-item:last-child { border-bottom: none; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .drone-feed-time {
+            font-family: 'JetBrains Mono', monospace;
+            color: #4a7a4e;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            margin-top: 1px;
+        }
+
+        .drone-action-tag {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .tag-irrigate { background: rgba(33,150,243,0.2); color: #90caf9; }
+        .tag-spray { background: rgba(255,152,0,0.2); color: #ffcc80; }
+        .tag-monitor { background: rgba(76,175,80,0.2); color: #a5d6a7; }
+
+        /* Threshold Slider */
+        .iot-threshold-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .threshold-card {
+            flex: 1;
+            min-width: 200px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(76, 175, 80, 0.15);
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        .threshold-label {
+            font-size: 0.78rem;
+            color: #7a9b7e;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .threshold-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: #a5d6a7;
+            font-weight: 600;
+        }
+
+        input[type=range].iot-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type=range].iot-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-primary), #5d8f49);
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(47,111,62,0.4);
+        }
+
+        /* Arduino code block */
+        .iot-code-section {
+            margin-top: 28px;
+        }
+
+        .iot-code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .iot-code-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #7a9b7e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .copy-btn {
+            background: rgba(76,175,80,0.12);
+            border: 1px solid rgba(76,175,80,0.3);
+            border-radius: 8px;
+            padding: 5px 14px;
+            color: #81c784;
+            font-size: 0.78rem;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { background: rgba(76,175,80,0.22); }
+
+        .iot-code-block {
+            background: #0a1a0b;
+            border: 1px solid rgba(76,175,80,0.15);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.7;
+            color: #b0cdb3;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .code-kw { color: #7dc68a; }
+        .code-fn { color: #80cbc4; }
+        .code-str { color: #ffd180; }
+        .code-cmt { color: #4a7a4e; }
+        .code-num { color: #ffab91; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-title">
+                <h1>SWARM PHEROMONE MAP</h1>
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Precision agriculture response network active</span>
+                </div>
+            </div>
+            <div class="future-tech-indicator">
+                DECENTRALIZED SWARM CONTROL
+            </div>
+        </header>
+
+        <aside class="sidebar">
+            <div class="section-title">
+                🌾 Core Concept
+            </div>
+            <div class="concept-panel">
+                <p>The core concept of your system is to use <strong>swarm intelligence inspired by insect pheromone behavior</strong> to enable <strong>smart and efficient pesticide application in farms</strong>. In nature, insects like ants leave pheromone trails to guide others toward important locations; similarly, your system creates a <strong>digital pheromone map</strong> where areas with high pest activity are assigned higher values. Multiple autonomous agents (like drones) use this map to move toward problem zones and spray pesticides only where needed. As spraying happens, the “pheromone” value decreases, preventing repeated or unnecessary spraying. The main goal is to achieve <strong>precision agriculture</strong>—reducing pesticide waste, minimizing environmental impact, and ensuring crops are treated accurately and efficiently without relying on centralized control.</p>
+            </div>
+
+            <div class="section-title">
+                🔬 Pheromone Sensors
+            </div>
+            <div class="sensor-grid" id="sensorGrid">
+                <!-- Sensors populated by JavaScript -->
+            </div>
+
+            <div class="section-title">
+                🧠 Swarm Logic
+            </div>
+            <div class="ai-analysis-panel">
+                <div class="ai-indicator">
+                    <span style="font-size: 0.9rem; font-weight: 600;">Digital Pheromone Reasoning</span>
+                    <div class="ai-dot"></div>
+                    <div class="ai-dot"></div>
+                    <div class="ai-dot"></div>
+                </div>
+                <div class="prediction-chart">
+                    <div class="prediction-wave"></div>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                    Pest hotspots raise attraction values and pull autonomous sprayers toward the right zones
+                </div>
+            </div>
+
+            <div class="section-title">
+                ⚙️ Simulation Controls
+            </div>
+            <div class="advanced-controls">
+                <div class="toggle-group">
+                    <div class="toggle-btn active" onclick="toggleMode('auto')">Auto Mode</div>
+                    <div class="toggle-btn" onclick="toggleMode('manual')">Manual</div>
+                </div>
+                <div class="toggle-group">
+                    <div class="toggle-btn active" onclick="toggleFeature('ai')">Swarm Forecast</div>
+                    <div class="toggle-btn" onclick="toggleFeature('quantum')">Trail Fade</div>
+                </div>
+                <div class="control-grid">
+                    <button class="btn" onclick="activateSwarmMode()">Dispatch Swarm</button>
+                    <button class="btn success" onclick="nanoSpray()">Targeted Spray</button>
+                    <button class="btn danger" onclick="emergencyProtocol()">Full Response</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-viewport">
+            <div class="viewport-3d" id="viewport3d">
+                <div class="field-grid"></div>
+                <div class="field-row" style="top: 14%;"></div>
+                <div class="field-row" style="top: 28%;"></div>
+                <div class="field-row" style="top: 42%;"></div>
+                <div class="field-row" style="top: 56%;"></div>
+                <div class="field-row" style="top: 70%;"></div>
+                <div class="hotspot" style="left: 61%; top: 22%; width: 120px; height: 120px;"></div>
+                <div class="hotspot" style="left: 69%; top: 48%; width: 134px; height: 134px;"></div>
+                <div class="hotspot" style="left: 7%; top: 47%; width: 146px; height: 146px;"></div>
+                <div class="trail-layer" id="trailLayer"></div>
+                <div id="droneLayer"></div>
+                <div class="future-tech-indicator" id="modeBadge">AUTO SWARM</div>
+            </div>
+        </main>
+
+        <aside class="sidebar">
+            <div class="section-title">
+                📊 Precision Stats
+            </div>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-value" id="activeSensors">12</div>
+                    <div class="stat-label">Active Sensors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="alertZones">0</div>
+                    <div class="stat-label">Hotspot Zones</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="sprayCount">0</div>
+                    <div class="stat-label">Spray Runs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="aiConfidence">98%</div>
+                    <div class="stat-label">Swarm Confidence</div>
+                </div>
+            </div>
+
+            <div class="section-title">
+                🛰 Field Zone Focus
+            </div>
+            <div class="ai-analysis-panel" id="sensorDetails">
+                <div style="font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--text-primary);">
+                    Select a sensor
+                </div>
+                <div style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
+                    Hover or click a sensor node in the field to inspect pheromone intensity, pest pressure, and decentralized response readiness.
+                </div>
+            </div>
+
+            <div class="section-title">
+                📝 Activity Log
+            </div>
+            <div class="activity-log" id="activityLog"></div>
+        </aside>
+
+        <footer class="footer">
+            <span>AiVara Pheromone Grid Interface · Bio-inspired swarm spraying simulation</span>
+            <span id="footerStatus">All systems nominal</span>
+        </footer>
+    </div>
+
+    <script>
+        const sensors = [
+            { id: 'PH-01', x: 14, y: 18, zone: 'North Ridge', intensity: 22, pestRisk: 'Low', status: 'optimal' },
+            { id: 'PH-02', x: 31, y: 26, zone: 'North Canal', intensity: 28, pestRisk: 'Low', status: 'optimal' },
+            { id: 'PH-03', x: 50, y: 20, zone: 'East Dry Belt', intensity: 47, pestRisk: 'Moderate', status: 'detecting' },
+            { id: 'PH-04', x: 68, y: 32, zone: 'Eastern Edge', intensity: 76, pestRisk: 'High', status: 'alert' },
+            { id: 'PH-05', x: 79, y: 58, zone: 'South-East Cluster', intensity: 64, pestRisk: 'High', status: 'spraying' },
+            { id: 'PH-06', x: 59, y: 74, zone: 'Central Basin', intensity: 39, pestRisk: 'Moderate', status: 'detecting' },
+            { id: 'PH-07', x: 40, y: 61, zone: 'Core Plot A', intensity: 20, pestRisk: 'Low', status: 'optimal' },
+            { id: 'PH-08', x: 22, y: 72, zone: 'South Channel', intensity: 34, pestRisk: 'Moderate', status: 'detecting' },
+            { id: 'PH-09', x: 10, y: 55, zone: 'West Orchard', intensity: 83, pestRisk: 'Critical', status: 'alert' },
+            { id: 'PH-10', x: 18, y: 42, zone: 'Central West', intensity: 58, pestRisk: 'High', status: 'spraying' },
+            { id: 'PH-11', x: 42, y: 44, zone: 'Main Crop Grid', intensity: 24, pestRisk: 'Low', status: 'optimal' },
+            { id: 'PH-12', x: 63, y: 48, zone: 'Irrigation Line', intensity: 31, pestRisk: 'Moderate', status: 'detecting' }
+        ];
+
+        let currentMode = 'auto';
+        const enabledFeatures = new Set(['ai']);
+        const state = {
+            sprays: 0,
+            selectedSensor: null,
+        };
+
+        const sensorGrid = document.getElementById('sensorGrid');
+        const viewport = document.getElementById('viewport3d');
+        const activityLog = document.getElementById('activityLog');
+        const sensorDetails = document.getElementById('sensorDetails');
+        const trailLayer = document.getElementById('trailLayer');
+        const droneLayer = document.getElementById('droneLayer');
+        const drones = [
+            { id: 'DR-1', x: 18, y: 16, target: 'PH-04', spraying: false },
+            { id: 'DR-2', x: 26, y: 68, target: 'PH-09', spraying: false },
+            { id: 'DR-3', x: 48, y: 18, target: 'PH-05', spraying: true },
+            { id: 'DR-4', x: 57, y: 66, target: 'PH-10', spraying: true },
+            { id: 'DR-5', x: 80, y: 22, target: 'PH-04', spraying: false }
+        ];
+
+        function statusClass(status) {
+            return `status-${status}`;
+        }
+
+        function statusLabel(status) {
+            return status === 'optimal' ? 'Optimal'
+                : status === 'detecting' ? 'Detecting'
+                : status === 'alert' ? 'Alert'
+                : 'Spraying';
+        }
+
+        function updateStats() {
+            const alerts = sensors.filter(sensor => sensor.status === 'alert').length;
+            const spraying = sensors.filter(sensor => sensor.status === 'spraying').length;
+            const avg = Math.round(sensors.reduce((sum, sensor) => sum + sensor.intensity, 0) / sensors.length);
+
+            document.getElementById('activeSensors').textContent = sensors.length;
+            document.getElementById('alertZones').textContent = alerts;
+            document.getElementById('sprayCount').textContent = state.sprays + spraying;
+            document.getElementById('aiConfidence').textContent = `${Math.min(99, 82 + avg % 17)}%`;
+            document.getElementById('footerStatus').textContent = alerts > 0
+                ? `${alerts} zone(s) need immediate attention`
+                : 'All systems nominal';
+        }
+
+        function drawTrail(x1, y1, x2, y2, fade = false) {
+            const line = document.createElement('div');
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            line.className = `trail-line${fade ? ' fade' : ''}`;
+            line.style.left = `${x1}%`;
+            line.style.top = `${y1}%`;
+            line.style.width = `${length}%`;
+            line.style.transform = `rotate(${angle}deg)`;
+            trailLayer.appendChild(line);
+
+            setTimeout(() => {
+                line.style.transition = 'opacity 1.6s ease';
+                line.style.opacity = '0';
+            }, 250);
+
+            setTimeout(() => line.remove(), 2200);
+        }
+
+        function renderDrones() {
+            droneLayer.innerHTML = '';
+            drones.forEach(drone => {
+                const el = document.createElement('div');
+                el.className = `drone${drone.spraying ? ' spraying' : ''}`;
+                el.id = drone.id;
+                el.style.left = `${drone.x}%`;
+                el.style.top = `${drone.y}%`;
+                el.innerHTML = `<div class="spray-cone"></div>`;
+                droneLayer.appendChild(el);
+            });
+        }
+
+        function advanceDrones() {
+            drones.forEach(drone => {
+                const targetSensor = sensors.find(sensor => sensor.id === drone.target) || sensors[0];
+                const nextX = drone.x + (targetSensor.x - drone.x) * 0.22;
+                const nextY = drone.y + (targetSensor.y - drone.y) * 0.22;
+                drawTrail(drone.x + 1, drone.y + 1, nextX + 1, nextY + 1, !enabledFeatures.has('quantum'));
+                drone.x = Number(nextX.toFixed(2));
+                drone.y = Number(nextY.toFixed(2));
+                drone.spraying = targetSensor.status === 'spraying';
+
+                const el = document.getElementById(drone.id);
+                if (el) {
+                    el.style.left = `${drone.x}%`;
+                    el.style.top = `${drone.y}%`;
+                    el.classList.toggle('spraying', drone.spraying);
+                }
+            });
+        }
+
+        function logActivity(message, type = '') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const now = new Date();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            entry.innerHTML = `
+                <div class="log-time">${time}</div>
+                <div class="log-message ${type}">${message}</div>
+            `;
+            activityLog.prepend(entry);
+
+            while (activityLog.children.length > 8) {
+                activityLog.removeChild(activityLog.lastChild);
+            }
+        }
+
+        function renderSensorCards() {
+            sensorGrid.innerHTML = '';
+            sensors.forEach(sensor => {
+                const card = document.createElement('div');
+                card.className = `sensor-card ${sensor.status}`;
+                card.innerHTML = `
+                    <div class="sensor-id">${sensor.id}</div>
+                    <div class="sensor-status ${statusClass(sensor.status)}">${statusLabel(sensor.status)}</div>
+                `;
+                card.addEventListener('click', () => selectSensor(sensor.id));
+                sensorGrid.appendChild(card);
+            });
+        }
+
+        function renderMarkers() {
+            sensors.forEach(sensor => {
+                const marker = document.createElement('div');
+                marker.className = `sensor-marker ${sensor.status}`;
+                marker.style.left = `${sensor.x}%`;
+                marker.style.top = `${sensor.y}%`;
+                marker.dataset.id = sensor.id;
+                marker.innerHTML = `
+                    <div class="detection-radius" style="width: 90px; height: 90px; left: -33px; top: -33px;"></div>
+                    <div class="sensor-core"></div>
+                    <div class="sensor-tooltip">${sensor.id} · ${sensor.zone}</div>
+                `;
+                marker.addEventListener('click', () => selectSensor(sensor.id));
+                viewport.appendChild(marker);
+            });
+        }
+
+        function selectSensor(id) {
+            state.selectedSensor = id;
+            const sensor = sensors.find(item => item.id === id);
+            if (!sensor) return;
+
+            document.querySelectorAll('.sensor-card').forEach((card, index) => {
+                card.classList.toggle('active', sensors[index].id === id);
+            });
+
+            sensorDetails.innerHTML = `
+                <div style="font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--accent-primary);">
+                    ${sensor.id} · ${sensor.zone}
+                </div>
+                <div style="display: grid; gap: 8px; font-size: 0.9rem; color: var(--text-secondary);">
+                    <div>Pheromone intensity: <strong style="color: var(--text-primary);">${sensor.intensity}</strong></div>
+                    <div>Risk classification: <strong style="color: var(--text-primary);">${sensor.pestRisk}</strong></div>
+                    <div>Network status: <strong style="color: var(--text-primary);">${statusLabel(sensor.status)}</strong></div>
+                    <div>Response logic: ${sensor.status === 'alert' ? 'Elevate pheromone priority and attract nearby drones' : sensor.status === 'spraying' ? 'Localized spraying underway while pheromone intensity decays' : 'Passive observation while the swarm map updates'}</div>
+                </div>
+            `;
+
+            logActivity(`Sensor ${sensor.id} focused for ${sensor.zone} assessment.`);
+        }
+
+        function toggleMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.toggle-group:first-child .toggle-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.toLowerCase().includes(mode));
+            });
+            document.getElementById('modeBadge').textContent = mode === 'auto' ? 'AUTO SWARM' : 'MANUAL OVERRIDE';
+            logActivity(`Control mode switched to ${mode.toUpperCase()} decentralized response.`, 'success');
+        }
+
+        function toggleFeature(feature) {
+            if (enabledFeatures.has(feature)) {
+                enabledFeatures.delete(feature);
+            } else {
+                enabledFeatures.add(feature);
+            }
+
+            document.querySelectorAll('.toggle-group:nth-child(2) .toggle-btn').forEach(btn => {
+                const active = btn.textContent.toLowerCase().includes(feature) ? enabledFeatures.has(feature) : btn.classList.contains('active');
+                if (btn.textContent.toLowerCase().includes('ai')) {
+                    btn.classList.toggle('active', enabledFeatures.has('ai'));
+                } else if (btn.textContent.toLowerCase().includes('quantum')) {
+                    btn.classList.toggle('active', enabledFeatures.has('quantum'));
+                } else {
+                    btn.classList.toggle('active', active);
+                }
+            });
+
+            logActivity(`${feature === 'ai' ? 'Swarm forecast' : 'Pheromone trail fade'} ${enabledFeatures.has(feature) ? 'enabled' : 'disabled'}.`);
+        }
+
+        function activateSwarmMode() {
+            const target = sensors.find(sensor => sensor.status === 'alert') || sensors[0];
+            if (target.status !== 'spraying') {
+                target.status = 'spraying';
+                state.sprays += 1;
+                drones.forEach((drone, index) => {
+                    if (index < 3) drone.target = target.id;
+                });
+                logActivity(`Swarm deployed toward ${target.id} (${target.zone}) using the highest pheromone priority.`, 'alert');
+                refreshUI();
+                selectSensor(target.id);
+            }
+        }
+
+        function nanoSpray() {
+            const target = sensors.find(sensor => sensor.status === 'alert' || sensor.status === 'detecting');
+            if (!target) {
+                logActivity('No active hotspot available for targeted spray.');
+                return;
+            }
+            target.status = 'spraying';
+            target.intensity = Math.max(12, target.intensity - 18);
+            state.sprays += 1;
+            drones.forEach((drone, index) => {
+                if (index < 2) drone.target = target.id;
+            });
+            const marker = [...document.querySelectorAll('.sensor-marker')].find(node => node.dataset.id === target.id);
+            if (marker) {
+                const effect = document.createElement('div');
+                effect.className = 'spray-effect';
+                effect.style.left = '-28px';
+                effect.style.top = '-28px';
+                marker.appendChild(effect);
+                setTimeout(() => effect.remove(), 2400);
+            }
+            logActivity(`Targeted spray launched at ${target.id}. Pheromone intensity reduced to ${target.intensity}.`, 'success');
+            refreshUI();
+            selectSensor(target.id);
+        }
+
+        function emergencyProtocol() {
+            sensors.forEach(sensor => {
+                if (sensor.status === 'alert') {
+                    sensor.status = 'spraying';
+                    sensor.intensity = Math.max(8, sensor.intensity - 22);
+                }
+            });
+            state.sprays += 2;
+            sensors
+                .filter(sensor => sensor.status === 'spraying')
+                .slice(0, drones.length)
+                .forEach((sensor, index) => {
+                    drones[index].target = sensor.id;
+                });
+            logActivity('Full response engaged. All hotspot zones forced into active treatment.', 'alert');
+            refreshUI();
+        }
+
+        function refreshUI() {
+            renderSensorCards();
+            document.querySelectorAll('.sensor-marker').forEach(marker => marker.remove());
+            renderMarkers();
+            renderDrones();
+            updateStats();
+        }
+
+        refreshUI();
+        selectSensor('PH-04');
+        logActivity('Pheromone grid initialized. Awaiting hotspot escalation across the field.');
+        setInterval(advanceDrones, 1800);
+    </script>
+
+    <!-- ============================================================
+         LIVE IOT PANEL — completely separate from simulation above
+         ESP8266 + Potentiometer (soil moisture) + LED + Buzzer
+    ============================================================ -->
+    <div class="iot-section">
+
+        <!-- Header -->
+        <div class="iot-section-header">
+            <div class="iot-title-block">
+                <h2>⚡ Live IoT Field Monitor</h2>
+                <p>ESP8266 · Soil Moisture (Potentiometer) · LED Indicator · Buzzer Alert — Real-time feed drives the heatmap above</p>
+            </div>
+            <div class="iot-connection-badge" id="connBadge" onclick="toggleSimulatedMode()">
+                <div class="conn-dot" id="connDot"></div>
+                <span id="connLabel">DEMO MODE (click to toggle)</span>
+            </div>
+        </div>
+
+        <!-- Hardware status row -->
+        <div class="iot-hw-row">
+            <div class="hw-badge"><div class="hw-dot on" id="hwEsp"></div> ESP8266</div>
+            <div class="hw-badge"><div class="hw-dot" id="hwLed"></div> LED D1</div>
+            <div class="hw-badge"><div class="hw-dot" id="hwBuzz"></div> Buzzer D2</div>
+            <div class="hw-badge"><div class="hw-dot on"></div> A0 · Pot</div>
+            <div class="hw-badge"><div class="hw-dot on"></div> 3.3V Rail</div>
+        </div>
+
+        <!-- Sensor Cards -->
+        <div class="iot-grid">
+
+            <!-- Soil Moisture -->
+            <div class="iot-card" id="moistureCard">
+                <div class="iot-card-header">
+                    <div class="iot-card-title">Soil Moisture</div>
+                    <div class="iot-card-icon">💧</div>
+                </div>
+                <div class="iot-big-value ok" id="moistureVal">--</div>
+                <div class="iot-unit" style="display:inline">%</div>
+                <div>
+                    <div class="iot-gauge-bar">
+                        <div class="iot-gauge-fill" id="moistureBar" style="width:0%;background:#4caf50;"></div>
+                    </div>
+                </div>
+                <div class="iot-status-label healthy" id="moistureStatus">Reading…</div>
+                <div style="font-size:0.75rem;color:#4a7a4e;margin-top:10px;">Raw ADC: <span id="rawAdc" style="font-family:'JetBrains Mono';color:#7dc68a;">--</span></div>
+            </div>
+
+            <!-- Crop Health -->
+            <div class="iot-card" id="cropCard">
+                <div class="iot-card-header">
+                    <div class="iot-card-title">Crop Health Index</div>
+                    <div class="iot-card-icon">🌱</div>
+                </div>
+                <div class="iot-big-value ok" id="cropVal">--</div>
+                <div class="iot-unit" style="display:inline">/ 100</div>
+                <div>
+                    <div class="iot-gauge-bar">
+                        <div class="iot-gauge-fill" id="cropBar" style="width:0%;background:#4caf50;"></div>
+                    </div>
+                </div>
+                <div class="iot-status-label healthy" id="cropStatus">Reading…</div>
+                <div style="font-size:0.75rem;color:#4a7a4e;margin-top:10px;">Derived from moisture + threshold delta</div>
+            </div>
+
+            <!-- Drone Decision -->
+            <div class="iot-card" id="droneCard">
+                <div class="iot-card-header">
+                    <div class="iot-card-title">Drone Decision</div>
+                    <div class="iot-card-icon">🚁</div>
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#c8e6c9;margin-bottom:8px;line-height:1.2;" id="droneDecision">--</div>
+                <div class="iot-status-label healthy" id="droneStatus">Standby</div>
+                <div style="font-size:0.75rem;color:#4a7a4e;margin-top:14px;">Based on live moisture vs threshold → heatmap intensity → drone path</div>
+            </div>
+
+            <!-- Alert Box -->
+            <div class="iot-card" id="alertCard">
+                <div class="iot-card-header">
+                    <div class="iot-card-title">Hardware Alert</div>
+                    <div class="iot-card-icon">🔔</div>
+                </div>
+                <div style="font-size:0.85rem;color:#9eb89f;margin-bottom:14px;line-height:1.6;" id="alertMsg">
+                    Waiting for sensor data…
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <div style="flex:1;text-align:center;background:rgba(76,175,80,0.08);border-radius:10px;padding:10px;">
+                        <div style="font-size:0.7rem;color:#4a7a4e;margin-bottom:4px;">LED</div>
+                        <div style="font-size:1.5rem;" id="ledIcon">⚫</div>
+                    </div>
+                    <div style="flex:1;text-align:center;background:rgba(76,175,80,0.08);border-radius:10px;padding:10px;">
+                        <div style="font-size:0.7rem;color:#4a7a4e;margin-bottom:4px;">BUZZER</div>
+                        <div style="font-size:1.5rem;" id="buzzIcon">🔕</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Heatmap + Drone Feed -->
+        <div class="iot-heatmap-section">
+            <div class="iot-heatmap-card">
+                <div class="iot-heatmap-title">
+                    🔥 Live Stress Heatmap — IoT Driven
+                    <span class="live-tag">LIVE</span>
+                </div>
+                <canvas id="iotHeatmapCanvas" width="900" height="180"></canvas>
+                <div style="display:flex;gap:16px;margin-top:10px;font-size:0.75rem;color:#4a7a4e;">
+                    <span>🟢 Healthy</span>
+                    <span>🟡 Monitor</span>
+                    <span>🔴 Needs Action</span>
+                    <span style="margin-left:auto;font-family:'JetBrains Mono';">Updated every 2s</span>
+                </div>
+            </div>
+            <div class="drone-action-feed">
+                <div class="drone-feed-title">🚁 Drone Action Log</div>
+                <div id="droneFeedList"></div>
+            </div>
+        </div>
+
+        <!-- Thresholds -->
+        <div class="iot-threshold-row">
+            <div class="threshold-card">
+                <div class="threshold-label">
+                    <span>Irrigation Threshold</span>
+                    <span class="threshold-val" id="tIrrigVal">30%</span>
+                </div>
+                <input type="range" class="iot-slider" id="tIrrig" min="10" max="60" value="30"
+                    oninput="document.getElementById('tIrrigVal').textContent=this.value+'%';updateIoT()">
+                <div style="font-size:0.73rem;color:#4a7a4e;margin-top:8px;">Drone irrigates when moisture is below this</div>
+            </div>
+            <div class="threshold-card">
+                <div class="threshold-label">
+                    <span>Spray Threshold</span>
+                    <span class="threshold-val" id="tSprayVal">70%</span>
+                </div>
+                <input type="range" class="iot-slider" id="tSpray" min="50" max="95" value="70"
+                    oninput="document.getElementById('tSprayVal').textContent=this.value+'%';updateIoT()">
+                <div style="font-size:0.73rem;color:#4a7a4e;margin-top:8px;">Drone sprays pesticide above this (high moisture = fungal risk)</div>
+            </div>
+            <div class="threshold-card">
+                <div class="threshold-label">
+                    <span>Alert (Buzzer + LED)</span>
+                    <span class="threshold-val" id="tAlertVal">50%</span>
+                </div>
+                <input type="range" class="iot-slider" id="tAlert" min="20" max="80" value="50"
+                    oninput="document.getElementById('tAlertVal').textContent=this.value+'%';updateIoT()">
+                <div style="font-size:0.73rem;color:#4a7a4e;margin-top:8px;">Buzzer + LED fire when moisture crosses this</div>
+            </div>
+        </div>
+
+        <!-- Arduino Code -->
+        <div class="iot-code-section">
+            <div class="iot-code-header">
+                <div class="iot-code-title">📟 Arduino Code — ESP8266 (Upload to Board)</div>
+                <button class="copy-btn" onclick="copyCode()">Copy Code</button>
+            </div>
+            <div class="iot-code-block" id="arduinoCode"><span class="code-cmt">// AiVara IoT Module — ESP8266 + Pot + LED + Buzzer
+// Sends soil moisture to FastAPI backend every 3 seconds</span>
+
+<span class="code-kw">#include</span> <span class="code-str">&lt;ESP8266WiFi.h&gt;</span>
+<span class="code-kw">#include</span> <span class="code-str">&lt;ESP8266HTTPClient.h&gt;</span>
+
+<span class="code-kw">const char</span>* ssid     = <span class="code-str">"YOUR_WIFI_SSID"</span>;
+<span class="code-kw">const char</span>* password = <span class="code-str">"YOUR_WIFI_PASS"</span>;
+<span class="code-kw">const char</span>* server   = <span class="code-str">"http://&lt;YOUR_PC_IP&gt;:8000/sensor"</span>;
+
+<span class="code-kw">#define</span> LED_PIN    D1   <span class="code-cmt">// GPIO5</span>
+<span class="code-kw">#define</span> BUZZER_PIN D2   <span class="code-cmt">// GPIO4</span>
+<span class="code-kw">#define</span> POT_PIN    A0   <span class="code-cmt">// Analog input</span>
+
+<span class="code-kw">const int</span> ALERT_THRESHOLD = <span class="code-num">500</span>; <span class="code-cmt">// ADC value (~50% moisture)</span>
+
+<span class="code-fn">void</span> <span class="code-fn">setup</span>() {
+  Serial.<span class="code-fn">begin</span>(<span class="code-num">9600</span>);
+  <span class="code-fn">pinMode</span>(LED_PIN,    OUTPUT);
+  <span class="code-fn">pinMode</span>(BUZZER_PIN, OUTPUT);
+
+  WiFi.<span class="code-fn">begin</span>(ssid, password);
+  <span class="code-kw">while</span> (WiFi.<span class="code-fn">status</span>() != WL_CONNECTED) {
+    <span class="code-fn">delay</span>(<span class="code-num">500</span>);
+    Serial.<span class="code-fn">print</span>(<span class="code-str">"."</span>);
+  }
+  Serial.<span class="code-fn">println</span>(<span class="code-str">"\nWiFi connected!"</span>);
+}
+
+<span class="code-fn">void</span> <span class="code-fn">loop</span>() {
+  <span class="code-kw">int</span> raw = <span class="code-fn">analogRead</span>(POT_PIN);          <span class="code-cmt">// 0–1023</span>
+  <span class="code-kw">int</span> pct = <span class="code-fn">map</span>(raw, <span class="code-num">0</span>, <span class="code-num">1023</span>, <span class="code-num">0</span>, <span class="code-num">100</span>);  <span class="code-cmt">// Convert to %</span>
+  Serial.<span class="code-fn">print</span>(<span class="code-str">"Moisture: "</span>); Serial.<span class="code-fn">println</span>(pct);
+
+  <span class="code-cmt">// Local hardware alert</span>
+  <span class="code-kw">if</span> (raw &lt; ALERT_THRESHOLD) {
+    <span class="code-fn">digitalWrite</span>(LED_PIN,    HIGH);
+    <span class="code-fn">digitalWrite</span>(BUZZER_PIN, HIGH); <span class="code-cmt">// Too dry → alert</span>
+  } <span class="code-kw">else</span> {
+    <span class="code-fn">digitalWrite</span>(LED_PIN,    LOW);
+    <span class="code-fn">digitalWrite</span>(BUZZER_PIN, LOW);
+  }
+
+  <span class="code-cmt">// Send to AiVara backend</span>
+  <span class="code-kw">if</span> (WiFi.<span class="code-fn">status</span>() == WL_CONNECTED) {
+    HTTPClient http;
+    WiFiClient client;
+    http.<span class="code-fn">begin</span>(client, server);
+    http.<span class="code-fn">addHeader</span>(<span class="code-str">"Content-Type"</span>, <span class="code-str">"application/json"</span>);
+    String body = <span class="code-str">"{\\"moisture\\":" </span>+ <span class="code-fn">String</span>(pct) + <span class="code-str">"}"</span>;
+    <span class="code-kw">int</span> code = http.<span class="code-fn">POST</span>(body);
+    Serial.<span class="code-fn">print</span>(<span class="code-str">"HTTP: "</span>); Serial.<span class="code-fn">println</span>(code);
+    http.<span class="code-fn">end</span>();
+  }
+
+  <span class="code-fn">delay</span>(<span class="code-num">3000</span>);
+}</div>
+        </div>
+
+    </div>
+    <!-- end Live IoT Panel -->
+
+    <script>
+    // ============================================================
+    //  LIVE IOT PANEL LOGIC — isolated, does NOT touch simulation
+    // ============================================================
+
+    let demoMode = true;          // uses simulated sensor in demo
+    let liveMoisture = 45;        // current moisture %
+    let demoTick = 0;
+    const heatGrid = [];          // 18 x 4 stress cells
+
+    // Init heatmap grid
+    for (let r = 0; r < 4; r++) {
+        heatGrid[r] = [];
+        for (let c = 0; c < 18; c++) heatGrid[r][c] = 0.3;
+    }
+
+    function toggleSimulatedMode() {
+        demoMode = !demoMode;
+        const badge = document.getElementById('connBadge');
+        const dot   = document.getElementById('connDot');
+        const label = document.getElementById('connLabel');
+        if (demoMode) {
+            badge.classList.remove('connected');
+            label.textContent = 'DEMO MODE (click to toggle)';
+        } else {
+            badge.classList.add('connected');
+            label.textContent = 'LIVE · localhost:8000 (click to toggle)';
+            fetchLive();
+        }
+    }
+
+    async function fetchLive() {
+        if (demoMode) return;
+        try {
+            const res = await fetch('http://localhost:8000/sensor');
+            const d   = await res.json();
+            liveMoisture = Math.min(100, Math.max(0, d.moisture));
+        } catch(e) {
+            // silently fall back to last value
+        }
+    }
+
+    function demoWave() {
+        // Produces a natural-looking oscillating moisture reading
+        demoTick += 0.04;
+        liveMoisture = Math.round(50 + 38 * Math.sin(demoTick) * Math.cos(demoTick * 0.3));
+        liveMoisture = Math.min(100, Math.max(2, liveMoisture));
+    }
+
+    function getStressColor(s) {
+        if (s > 0.75) return '#c74b3d';
+        if (s > 0.45) return '#d8891c';
+        return '#2f6f3e';
+    }
+
+    function drawHeatmap() {
+        const canvas = document.getElementById('iotHeatmapCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        const cols = heatGrid[0].length, rows = heatGrid.length;
+        const cw = W / cols, ch = H / rows;
+
+        ctx.clearRect(0, 0, W, H);
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const s = heatGrid[r][c];
+                const alpha = 0.3 + s * 0.65;
+                ctx.fillStyle = getStressColor(s);
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                ctx.roundRect(c*cw+2, r*ch+2, cw-4, ch-4, 6);
+                ctx.fill();
+
+                // value label
+                ctx.globalAlpha = 0.7;
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${Math.round(cw*0.28)}px JetBrains Mono, monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(Math.round(s*100), c*cw + cw/2, r*ch + ch/2);
+            }
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function updateHeatGrid(moisture) {
+        const stress = moisture < 30 ? 0.9 - moisture/100
+                     : moisture > 70 ? (moisture - 60)/100
+                     : 0.15 + Math.random()*0.1;
+        for (let r = 0; r < heatGrid.length; r++) {
+            for (let c = 0; c < heatGrid[r].length; c++) {
+                const noise = (Math.random() - 0.5) * 0.18;
+                heatGrid[r][c] = Math.min(1, Math.max(0.05, stress + noise));
+            }
+        }
+        // Anchor a hotspot near the driest zone
+        if (moisture < 35) {
+            heatGrid[1][3] = 0.92; heatGrid[2][3] = 0.88;
+            heatGrid[1][4] = 0.85; heatGrid[2][4] = 0.80;
+        }
+        if (moisture > 72) {
+            heatGrid[0][12] = 0.88; heatGrid[1][12] = 0.84;
+        }
+    }
+
+    function droneDecision(moisture, tIrrig, tSpray) {
+        if (moisture < tIrrig)  return { label: 'IRRIGATE',  cls: 'critical', tag: 'tag-irrigate', action: '💧 Drone dispatched → Zone C (dry)' };
+        if (moisture > tSpray)  return { label: 'SPRAY',     cls: 'moderate', tag: 'tag-spray',    action: '🌿 Drone dispatched → Zone A (fungal risk)' };
+        return                          { label: 'MONITOR',  cls: 'healthy',  tag: 'tag-monitor',  action: '✅ Field nominal — drones on standby' };
+    }
+
+    let lastDecision = '';
+    function addDroneFeedEntry(action, tag) {
+        if (action === lastDecision) return;
+        lastDecision = action;
+        const list = document.getElementById('droneFeedList');
+        const now  = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const tagLabels = { 'tag-irrigate': 'IRRIGATE', 'tag-spray': 'SPRAY', 'tag-monitor': 'MONITOR' };
+        const div  = document.createElement('div');
+        div.className = 'drone-feed-item';
+        div.innerHTML = `<span class="drone-feed-time">${now}</span><span>${action} <span class="drone-action-tag ${tag}">${tagLabels[tag]}</span></span>`;
+        list.prepend(div);
+        while (list.children.length > 12) list.removeChild(list.lastChild);
+    }
+
+    function updateIoT() {
+        const moisture = liveMoisture;
+        const tIrrig   = parseInt(document.getElementById('tIrrig').value);
+        const tSpray   = parseInt(document.getElementById('tSpray').value);
+        const tAlert   = parseInt(document.getElementById('tAlert').value);
+
+        // Moisture card
+        const mEl   = document.getElementById('moistureVal');
+        const mBar  = document.getElementById('moistureBar');
+        const mStat = document.getElementById('moistureStatus');
+        mEl.textContent = moisture;
+        document.getElementById('rawAdc').textContent = Math.round(moisture / 100 * 1023);
+        mBar.style.width = moisture + '%';
+        if (moisture < tIrrig) {
+            mEl.className = 'iot-big-value danger';
+            mBar.style.background = '#c74b3d';
+            mStat.className = 'iot-status-label critical';
+            mStat.textContent = '⚠ Critically Dry';
+        } else if (moisture > tSpray) {
+            mEl.className = 'iot-big-value warning';
+            mBar.style.background = '#d8891c';
+            mStat.className = 'iot-status-label moderate';
+            mStat.textContent = '🌧 Over-saturated';
+        } else {
+            mEl.className = 'iot-big-value ok';
+            mBar.style.background = '#4caf50';
+            mStat.className = 'iot-status-label healthy';
+            mStat.textContent = '✅ Optimal';
+        }
+
+        // Crop health index (0-100, peaks near 55% moisture)
+        const health = Math.round(100 - Math.abs(moisture - 55) * 1.6);
+        const hClamped = Math.min(100, Math.max(0, health));
+        const cEl   = document.getElementById('cropVal');
+        const cBar  = document.getElementById('cropBar');
+        const cStat = document.getElementById('cropStatus');
+        cEl.textContent = hClamped;
+        cBar.style.width = hClamped + '%';
+        if (hClamped >= 70) {
+            cEl.className = 'iot-big-value ok';
+            cBar.style.background = '#4caf50';
+            cStat.className = 'iot-status-label healthy';
+            cStat.textContent = '🌱 Healthy';
+        } else if (hClamped >= 40) {
+            cEl.className = 'iot-big-value warning';
+            cBar.style.background = '#d8891c';
+            cStat.className = 'iot-status-label moderate';
+            cStat.textContent = '⚠ Needs Attention';
+        } else {
+            cEl.className = 'iot-big-value danger';
+            cBar.style.background = '#c74b3d';
+            cStat.className = 'iot-status-label critical';
+            cStat.textContent = '🚨 Critical';
+        }
+
+        // Drone decision
+        const dec = droneDecision(moisture, tIrrig, tSpray);
+        document.getElementById('droneDecision').textContent = dec.label;
+        document.getElementById('droneStatus').className = `iot-status-label ${dec.cls}`;
+        document.getElementById('droneStatus').textContent = dec.label;
+        addDroneFeedEntry(dec.action, dec.tag);
+
+        // LED + Buzzer
+        const alertOn = moisture < tAlert;
+        const ledDot  = document.getElementById('hwLed');
+        const buzzDot = document.getElementById('hwBuzz');
+        document.getElementById('ledIcon').textContent  = alertOn ? '🟡' : '⚫';
+        document.getElementById('buzzIcon').textContent = alertOn ? '🔔' : '🔕';
+        ledDot.className  = 'hw-dot' + (alertOn ? ' alert' : '');
+        buzzDot.className = 'hw-dot' + (alertOn ? ' alert' : '');
+
+        const alertMsg = document.getElementById('alertMsg');
+        if (alertOn) {
+            alertMsg.textContent = `⚠ Moisture ${moisture}% crossed alert threshold (${tAlert}%) — LED ON, Buzzer ACTIVE`;
+            alertMsg.style.color = '#ef9a9a';
+            document.getElementById('alertCard').classList.add('danger-card');
+        } else {
+            alertMsg.textContent = `Moisture ${moisture}% is within safe range. LED OFF, Buzzer silent.`;
+            alertMsg.style.color = '#9eb89f';
+            document.getElementById('alertCard').classList.remove('danger-card');
+        }
+
+        // Update heatmap
+        updateHeatGrid(moisture);
+        drawHeatmap();
+    }
+
+    // Main loop
+    setInterval(async () => {
+        if (demoMode) demoWave();
+        else await fetchLive();
+        updateIoT();
+    }, 2000);
+
+    // Init
+    updateIoT();
+
+    function copyCode() {
+        const code = document.getElementById('arduinoCode').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy Code', 1800);
+        });
+    }
+    </script>
+
+</body>
+</html>
