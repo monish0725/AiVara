@@ -1,4 +1,4 @@
-# 🌾 Intellivor v4.0 — AI Smart Farming Ecosystem
+# 🌾 AiVara — AI Smart Farming Ecosystem
 
 > **Empowering Karnataka Farmers with AI, IoT & Market Intelligence**  
 > Built for rural-first, multilingual (English + ಕನ್ನಡ) farming communities.
